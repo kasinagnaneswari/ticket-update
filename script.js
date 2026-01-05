@@ -1,48 +1,106 @@
 
-  const addNoteBtn = document.getElementById("addNoteBtn");
-  const noteText = document.getElementById("noteText");
-  const activity = document.querySelector(".activity");
+document.addEventListener('DOMContentLoaded', () => {
 
-  const currentUser = "Sarah Wilson"; // mock logged-in user
+  const stateButtons = document.querySelectorAll('.pill');
+  const noteBtn = document.querySelector('.add-note .btn.primary.full');
+  const noteArea = document.querySelector('.add-note textarea');
+  const activityFeed = document.querySelector('.activity');
+  const updateBtn = document.querySelector('.actions .btn.primary');
 
-  function timeAgo() {
-    return "Just now";
+  const ticketId = "INC0005";
+  const currentUser = "John";
+
+  // Load activity from localStorage
+  let activityLog = JSON.parse(localStorage.getItem(`activity_${ticketId}`)) || [];
+
+  function addActivityEntry(user, message, isSystem = false) {
+    const activity = {
+      user,
+      message,
+      isSystem,
+      time: new Date().toLocaleString()
+    };
+
+    activityLog.push(activity);
+    localStorage.setItem(`activity_${ticketId}`, JSON.stringify(activityLog));
+    renderActivityFeed();
   }
 
-  addNoteBtn.addEventListener("click", () => {
-    const text = noteText.value.trim();
-    if (!text) return;
+  function renderActivityFeed() {
+    activityFeed.innerHTML = "";
 
-    const entry = document.createElement("div");
-    entry.className = "entry";
+    activityLog.forEach(item => {
+      const entry = document.createElement('div');
+      entry.className = item.isSystem ? 'entry system' : 'entry';
 
-    entry.innerHTML = `
-      <i class="fa-solid fa-user avatar"></i>
-      <div>
-        <strong>${currentUser}</strong>
-        <span>${timeAgo()}</span>
-        <p>${text}</p>
-      </div>
-    `;
+      entry.innerHTML = `
+        <i class="fa-solid ${item.isSystem ? 'fa-gear' : 'fa-user'} avatar"></i>
+        <div>
+          <strong>${item.user}</strong>
+          <span>${item.time}</span>
+          <p>${item.message}</p>
+        </div>
+      `;
 
-    activity.prepend(entry); // newest on top
-    noteText.value = "";
+      activityFeed.prepend(entry);
+    });
+  }
+
+  /* STATE CHANGE LOGGING */
+  stateButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const currentActive = document.querySelector('.pill.active');
+      const oldState = currentActive?.innerText.trim();
+      const newState = button.innerText.trim();
+
+      if (oldState !== newState) {
+        stateButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+
+        addActivityEntry("System", `State changed from ${oldState} to ${newState}`, true);
+      }
+    });
   });
 
-  const updateBtn = document.getElementById("updateTicketBtn");
+  /* ADD NOTE */
+  noteBtn.addEventListener('click', () => {
+    const noteText = noteArea.value.trim();
+    if (!noteText) return;
 
-  updateBtn.addEventListener("click", () => {
-    const entry = document.createElement("div");
-    entry.className = "entry system";
-
-    entry.innerHTML = `
-      <i class="fa-solid fa-gear avatar"></i>
-      <div>
-        <strong>System</strong>
-        <span>Just now</span>
-        <p>Incident details were updated.</p>
-      </div>
-    `;
-
-    activity.prepend(entry);
+    addActivityEntry(currentUser, noteText);
+    noteArea.value = "";
   });
+
+  /* FIELD CHANGE TRACKING */
+  document.querySelectorAll('.field input, .field select, .field textarea')
+    .forEach(field => {
+
+      let previousValue = field.value;
+
+      field.addEventListener('change', () => {
+        const newValue = field.value;
+        if (previousValue !== newValue) {
+
+          const label = field.closest('.field')
+            ?.querySelector('label')?.innerText || "Field";
+
+          addActivityEntry(
+            "System",
+            `${label} changed from "${previousValue}" to "${newValue}"`,
+            true
+          );
+
+          previousValue = newValue;
+        }
+      });
+    });
+
+  /* UPDATE BUTTON */
+  updateBtn.addEventListener('click', () => {
+    addActivityEntry("System", "Incident details were updated.", true);
+    alert("Ticket updated successfully.");
+  });
+
+  renderActivityFeed();
+});
+
